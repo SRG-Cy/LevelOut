@@ -33,7 +33,7 @@ To rank up you have to pass a **real-world test** the System set for you, such a
 
 **LevelOut runs an open-weight model, and it can run that model locally too.**
 
-- **Open-weight model:** the System is **Qwen2.5-72B-Instruct**, called through **Hugging Face Inference Providers** with the open-source `huggingface_hub` client. You can swap in Llama, Gemma or Mistral by changing one environment variable.
+- **Open-weight model:** the System runs on **gpt-oss-120b**, an open-weight model (Apache 2.0), served by **Groq** through its OpenAI-compatible API and called with the open-source `huggingface_hub` client. Any open model works: Qwen through Hugging Face Inference Providers is built in, and Llama, Gemma or Mistral are one environment variable away.
 - **Local inference (optional):** set `LLM_BASE_URL` to an **Ollama**, **llama.cpp** or **vLLM** server and the same app runs entirely on weights you host yourself, with no code changes.
 
 The open model isn't decoration. **It is the game master.** Without it there is no trial, no rank, no quest and no adaptation. It does three jobs, each with a strict JSON contract:
@@ -64,4 +64,4 @@ The whole design pushes you off the screen:
 - Weekly "dungeon" challenges you can do with friends in the same park
 - Offline-first PWA so the quest works with no signal
 
-*Built with Flask, vanilla JS, and an open-weight model on Hugging Face. MIT licensed.*
+*Built with Flask, vanilla JS, and the open-weight gpt-oss-120b model served by Groq. MIT licensed.*

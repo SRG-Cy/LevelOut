@@ -44,7 +44,7 @@ The app's job is to get you *off* it. You spend a minute reading the quest, then
 
 | | How |
 |---|---|
-| ✅ **Open-weight model** | The System is **Qwen2.5-72B-Instruct** (public weights) by default, called through [Hugging Face Inference Providers](https://huggingface.co/docs/inference-providers) using the open-source `huggingface_hub` client. Swap in Llama, Gemma or Mistral by changing `HF_MODEL`. |
+| ✅ **Open-weight model** | The demo runs the System on **gpt-oss-120b** (open weights, Apache 2.0) served by [Groq](https://console.groq.com). Out of the box it can also use **Qwen2.5-72B-Instruct** via [Hugging Face Inference Providers](https://huggingface.co/docs/inference-providers). Either way it's called with the open-source `huggingface_hub` client, and you can swap models by changing `HF_MODEL`. |
 | ✅ **Local / self-hosted inference (optional)** | Set `LLM_BASE_URL` to any OpenAI-compatible server, such as **Ollama**, **llama.cpp** or **vLLM**, and the exact same app runs on weights you host yourself. No code changes. |
 
 **The open model is what makes the game work.** It writes the trial for your skill, judges your rank and stats, builds your weekly plan, designs every Daily Quest from your equipment, and rewrites the next quest from your report. Only the game maths (XP, levels, streaks) is plain code, on purpose, so the model can't inflate your progress.
