@@ -31,17 +31,20 @@ To rank up you have to pass a **real-world test** the System set for you, such a
 
 ## How open-source AI powers it
 
-The System is **Qwen2.5-72B-Instruct**, an open-weight model, called through **Hugging Face Inference Providers**. Nothing runs on the player's phone, and you can swap in Llama, Gemma or Mistral by changing one environment variable, or self-host the same weights.
+**LevelOut runs an open-weight model, and it can run that model locally too.**
 
-The model does three jobs, each with a strict JSON contract:
+- **Open-weight model:** the System is **Qwen2.5-72B-Instruct**, called through **Hugging Face Inference Providers** with the open-source `huggingface_hub` client. You can swap in Llama, Gemma or Mistral by changing one environment variable.
+- **Local inference (optional):** set `LLM_BASE_URL` to an **Ollama**, **llama.cpp** or **vLLM** server and the same app runs entirely on weights you host yourself, with no code changes.
 
-| Step | What the model does |
+The open model isn't decoration. **It is the game master.** Without it there is no trial, no rank, no quest and no adaptation. It does three jobs, each with a strict JSON contract:
+
+| Step | What the open model does |
 |---|---|
 | Trial | Writes level-check questions specific to the chosen skill |
-| Awakening | Rates the Player honestly (most people start at E or D) and builds a 7-day plan |
-| Daily Quest | Designs drills from the Player's equipment, then **adapts** using the last report |
+| Awakening | Rates the Player honestly (most people start at E or D), sets stats, a 30-day goal, a rank-up test and a 7-day plan |
+| Daily Quest | Designs drills from the Player's own equipment, then **adapts** them using the last report. Drills that hurt are replaced. |
 
-The game itself (XP curve, levels, rank gates, streaks, penalty quests) is deterministic JavaScript running in the browser, so the model can't "inflate" your progress. You only level up by doing the drills.
+The game maths (XP curve, levels, rank gates, streaks, penalty quests) is deterministic JavaScript in the browser, so the model can't "inflate" your progress. You only level up by doing the drills.
 
 ## Touching grass
 

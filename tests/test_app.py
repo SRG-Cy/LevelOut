@@ -72,3 +72,17 @@ def test_model_error_is_502(client, monkeypatch):
     monkeypatch.setattr(lo, "client", FakeClient(RuntimeError("rate limited")))
     res = client.post("/api/assess", json={"skill": "running"})
     assert res.status_code == 502 and "rate limited" in res.get_json()["error"]
+
+
+def test_llm_base_url_switches_to_self_hosted_server(monkeypatch):
+    import importlib
+
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.setenv("LLM_BASE_URL", "http://localhost:11434/v1")
+    try:
+        mod = importlib.reload(lo)
+        assert mod.client is not None and mod.LLM_BASE_URL == "http://localhost:11434/v1"
+        assert b"via your own server" in mod.app.test_client().get("/").data
+    finally:
+        monkeypatch.delenv("LLM_BASE_URL")
+        importlib.reload(lo)

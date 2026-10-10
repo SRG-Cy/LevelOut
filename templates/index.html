@@ -19,7 +19,7 @@
     </header>
 
     {% if demo_mode %}
-    <p class="demo-note" role="status">Demo mode: no <code>HF_TOKEN</code> set, so the System uses sample quests.</p>
+    <p class="demo-note" role="status">Demo mode: no <code>HF_TOKEN</code> or <code>LLM_BASE_URL</code> set, so the System uses sample quests.</p>
     {% endif %}
 
     <div id="toasts" class="toasts" aria-live="polite"></div>
@@ -149,7 +149,7 @@
     <p id="error" class="error" role="alert" hidden></p>
 
     <footer class="foot">
-      The System runs on the open-weight model <code>{{ model }}</code> via Hugging Face. Progress stays in your browser.<br>
+      The System runs on the open-weight model <code>{{ model }}</code> via {{ host }}. Progress stays in your browser.<br>
       Not medical advice. Stop if anything hurts. Built for the MLH × DEV Hacktoberfest Open-Source AI Challenge: Touch Grass.
     </footer>
   </main>

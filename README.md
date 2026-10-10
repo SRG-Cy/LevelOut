@@ -40,9 +40,25 @@ The app's job is to get you *off* it. You spend a minute reading the quest, then
 
 ## Open-source AI at the core
 
-The System is an **open-weight model** (default `Qwen/Qwen2.5-72B-Instruct`) called through [Hugging Face Inference Providers](https://huggingface.co/docs/inference-providers). Nothing runs on your computer. Swap in Llama, Gemma, Mistral or any other open model by changing `HF_MODEL`, or point it at your own self-hosted copy.
+**Which option it uses:** LevelOut **runs an open-weight model**, and it also supports **local or self-hosted inference** with one setting.
+
+| | How |
+|---|---|
+| ✅ **Open-weight model** | The System is **Qwen2.5-72B-Instruct** (public weights) by default, called through [Hugging Face Inference Providers](https://huggingface.co/docs/inference-providers) using the open-source `huggingface_hub` client. Swap in Llama, Gemma or Mistral by changing `HF_MODEL`. |
+| ✅ **Local / self-hosted inference (optional)** | Set `LLM_BASE_URL` to any OpenAI-compatible server, such as **Ollama**, **llama.cpp** or **vLLM**, and the exact same app runs on weights you host yourself. No code changes. |
+
+**The open model is what makes the game work.** It writes the trial for your skill, judges your rank and stats, builds your weekly plan, designs every Daily Quest from your equipment, and rewrites the next quest from your report. Only the game maths (XP, levels, streaks) is plain code, on purpose, so the model can't inflate your progress.
 
 All game state (XP, stats, history) is computed and stored **in your browser**. The server is stateless and keeps nothing.
+
+### Run the System on your own machine (optional)
+
+```bash
+ollama pull qwen2.5:7b              # once
+# in levelout/.env:
+LLM_BASE_URL=http://localhost:11434/v1
+HF_MODEL=qwen2.5:7b
+```
 
 ## Run it
 

@@ -1,7 +1,9 @@
 """LevelOut: an anime-style "System" that levels you up at a real skill, outside.
 
-The System is an open-weight model reached through Hugging Face Inference Providers,
-so no AI runs on your own machine. Without an HF_TOKEN the app runs in demo mode.
+The System is an open-weight model. By default it is reached through Hugging Face
+Inference Providers, so no AI runs on your own machine. Set LLM_BASE_URL to use any
+self-hosted, OpenAI-compatible server instead (Ollama, llama.cpp, vLLM). With neither
+an HF_TOKEN nor LLM_BASE_URL the app runs in demo mode.
 Progress (XP, levels, stats, streaks) is computed and stored in the browser.
 """
 
@@ -20,10 +22,16 @@ load_dotenv()
 
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 HF_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
 RATINGS = {"easy", "ok", "hard", "pain", "skipped"}
 
 app = Flask(__name__)
-client = InferenceClient(api_key=HF_TOKEN) if HF_TOKEN else None
+if LLM_BASE_URL:  # self-hosted open-weight model, e.g. http://localhost:11434/v1 for Ollama
+    client = InferenceClient(base_url=LLM_BASE_URL, api_key=HF_TOKEN or "local")
+elif HF_TOKEN:
+    client = InferenceClient(api_key=HF_TOKEN)
+else:
+    client = None
 
 
 class ModelError(Exception):
@@ -167,7 +175,10 @@ def quest_prompt(data):
 
 @app.get("/")
 def index():
-    return render_template("index.html", demo_mode=client is None, model=HF_MODEL)
+    return render_template(
+        "index.html", demo_mode=client is None, model=HF_MODEL,
+        host="your own server" if LLM_BASE_URL else "Hugging Face",
+    )
 
 
 @app.post("/api/assess")
