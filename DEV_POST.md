@@ -25,9 +25,9 @@ To rank up you have to pass a **real-world test** the System set for you, such a
 
 <!-- Add your deployed link and/or a short screen recording here -->
 🔗 Live demo: `<your link>`
-💻 Code: `<your GitHub link>/tree/main/levelout`
+💻 Code: https://github.com/SRG-Cy/levelout
 
-![Daily quest](<link to docs/quest.png>)
+![Daily quest](https://raw.githubusercontent.com/SRG-Cy/levelout/main/docs/quest.png)
 
 ## How open-source AI powers it
 

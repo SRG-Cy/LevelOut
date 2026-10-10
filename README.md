@@ -55,7 +55,7 @@ All game state (XP, stats, history) is computed and stored **in your browser**. 
 
 ```bash
 ollama pull qwen2.5:7b              # once
-# in levelout/.env:
+# in .env:
 LLM_BASE_URL=http://localhost:11434/v1
 HF_MODEL=qwen2.5:7b
 ```
@@ -63,7 +63,7 @@ HF_MODEL=qwen2.5:7b
 ## Run it
 
 ```bash
-cd levelout
+git clone https://github.com/SRG-Cy/levelout.git && cd levelout
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env      # paste your Hugging Face token into .env
@@ -108,4 +108,4 @@ Inspired by the "System" in leveling anime and manhwa. All names, text and visua
 
 ## License
 
-[MIT](../LICENSE)
+[MIT](LICENSE)
