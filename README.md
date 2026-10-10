@@ -77,7 +77,7 @@ python app.py             # open http://localhost:5000
 ```
 LLM_BASE_URL=https://api.groq.com/openai/v1
 LLM_API_KEY=gsk_your_key_here
-HF_MODEL=llama-3.3-70b-versatile
+HF_MODEL=openai/gpt-oss-120b
 ```
 
 **No token?** It runs in **demo mode** with sample trials and quests, including the "Hurt" adaptation, so you can play the whole loop.

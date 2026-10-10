@@ -57,7 +57,7 @@ def parse_json(text):
         return json.loads(text[start : end + 1])
 
 
-def ask_model(user_prompt, max_tokens=2500):
+def ask_model(user_prompt, max_tokens=6000):  # room for reasoning models like gpt-oss
     """Call the open-weight model and return parsed JSON, retrying once on bad JSON."""
     messages = [
         {"role": "system", "content": prompts.BASE_RULES},
