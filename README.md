@@ -72,6 +72,14 @@ python app.py             # open http://localhost:5000
 
 **Free token:** [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) → *Create new token* → *Fine-grained* → tick **"Make calls to Inference Providers"**.
 
+**Out of Hugging Face credits?** Use a free open-model host instead. With [Groq](https://console.groq.com/keys), put this in `.env`:
+
+```
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_API_KEY=gsk_your_key_here
+HF_MODEL=llama-3.3-70b-versatile
+```
+
 **No token?** It runs in **demo mode** with sample trials and quests, including the "Hurt" adaptation, so you can play the whole loop.
 
 **Deploy:** any Python host (Render, Railway, DigitalOcean App Platform). Set `HF_TOKEN` and use the start command `gunicorn app:app`.

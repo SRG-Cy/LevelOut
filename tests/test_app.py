@@ -82,7 +82,7 @@ def test_llm_base_url_switches_to_self_hosted_server(monkeypatch):
     try:
         mod = importlib.reload(lo)
         assert mod.client is not None and mod.LLM_BASE_URL == "http://localhost:11434/v1"
-        assert b"via your own server" in mod.app.test_client().get("/").data
+        assert b"via localhost" in mod.app.test_client().get("/").data
     finally:
         monkeypatch.delenv("LLM_BASE_URL")
         importlib.reload(lo)

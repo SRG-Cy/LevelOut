@@ -2,7 +2,8 @@
 
 The System is an open-weight model. By default it is reached through Hugging Face
 Inference Providers, so no AI runs on your own machine. Set LLM_BASE_URL to use any
-self-hosted, OpenAI-compatible server instead (Ollama, llama.cpp, vLLM). With neither
+other OpenAI-compatible server instead: a free open-model host such as Groq, or your
+own Ollama, llama.cpp or vLLM. With neither
 an HF_TOKEN nor LLM_BASE_URL the app runs in demo mode.
 Progress (XP, levels, stats, streaks) is computed and stored in the browser.
 """
@@ -10,6 +11,7 @@ Progress (XP, levels, stats, streaks) is computed and stored in the browser.
 import json
 import os
 import re
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
@@ -23,11 +25,12 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 HF_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
+LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip() or HF_TOKEN
 RATINGS = {"easy", "ok", "hard", "pain", "skipped"}
 
 app = Flask(__name__)
-if LLM_BASE_URL:  # self-hosted open-weight model, e.g. http://localhost:11434/v1 for Ollama
-    client = InferenceClient(base_url=LLM_BASE_URL, api_key=HF_TOKEN or "local")
+if LLM_BASE_URL:  # e.g. https://api.groq.com/openai/v1, or http://localhost:11434/v1 for Ollama
+    client = InferenceClient(base_url=LLM_BASE_URL, api_key=LLM_API_KEY or "local")
 elif HF_TOKEN:
     client = InferenceClient(api_key=HF_TOKEN)
 else:
@@ -177,7 +180,7 @@ def quest_prompt(data):
 def index():
     return render_template(
         "index.html", demo_mode=client is None, model=HF_MODEL,
-        host="your own server" if LLM_BASE_URL else "Hugging Face",
+        host=urlparse(LLM_BASE_URL).hostname if LLM_BASE_URL else "Hugging Face",
     )
 
 
