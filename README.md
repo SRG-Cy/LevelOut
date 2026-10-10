@@ -19,6 +19,16 @@ Built for the **MLH × DEV Hacktoberfest Open-Source AI Challenge, Week 1: "Touc
 7. **Report.** Rate each drill *Easy / Just right / Hard / Hurt / Skipped*. You earn XP and stat points, level up, and keep your streak.
 8. **The System adapts.** Easy drills get harder, hard ones get easier, and anything that **hurt is replaced** with a gentler drill for a different body part, with a "rest and see a doctor if it continues" warning.
 
+### Feels like the anime
+
+- **Full-screen System moments** for awakening, level up, rank up and the penalty zone, with a light burst, a slam-in window and stat changes listed.
+- **System text types itself out** with soft beeps.
+- **Stat bars fill with a glow**, and the stats you just trained flash green with "+1".
+- **Rank colours:** E grey, D green, C blue, B purple, A orange, and S gold with a shimmer.
+- **Live quest checklist** with a progress ring around the timer. Unticked drills are pre-marked "Skipped" in your report.
+- **Penalty mode:** miss more than 2 days and the whole System turns red until you complete a quest.
+- Floating particles, glowing buttons, and **sound + vibration** with a 🔊/🔇 toggle. It all respects "reduce motion" settings.
+
 ### Game rules
 
 | Mechanic | How it works |
@@ -102,9 +112,13 @@ Browser (game engine)                     Flask (app.py)                  Open-w
 
 ## Screenshots
 
-| Choose your path | Status window | Quest in progress |
+| Awakening | Level up | Penalty zone |
 |---|---|---|
-| ![Setup](docs/setup.png) | ![Status](docs/status.png) | ![Active](docs/active.png) |
+| ![Awakening](docs/awakening.png) | ![Level up](docs/levelup.png) | ![Penalty](docs/penalty.png) |
+
+| Status window | Quest in progress (phone) | Choose your path |
+|---|---|---|
+| ![Status](docs/status.png) | ![Active quest](docs/active.png) | ![Setup](docs/setup.png) |
 
 ## Safety
 

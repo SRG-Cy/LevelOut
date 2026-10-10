@@ -12,10 +12,12 @@
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
+  <canvas id="particles" aria-hidden="true"></canvas>
   <main class="wrap">
     <header class="brand">
       <span class="logo">LEVEL<b>OUT</b></span>
       <span class="sub">Train outside. Level up for real.</span>
+      <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="true" title="Sound and vibration">🔊</button>
     </header>
 
     {% if demo_mode %}
@@ -23,6 +25,18 @@
     {% endif %}
 
     <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <!-- Full-screen System moments: awakening, level up, rank up, penalty -->
+    <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title" hidden>
+      <div class="burst" aria-hidden="true"></div>
+      <div class="ov-window">
+        <div class="win-title" id="ov-title"></div>
+        <div class="ov-big" id="ov-big"></div>
+        <p class="sys ov-sub" id="ov-sub"></p>
+        <ul class="ov-gains" id="ov-gains"></ul>
+        <button class="btn primary" id="ov-continue" type="button">Continue</button>
+      </div>
+    </div>
 
     <!-- 1. Intro -->
     <section class="screen" id="s-intro">
@@ -73,6 +87,7 @@
     <section class="screen" id="s-status" hidden>
       <div class="window glow">
         <div class="win-title">[ STATUS ]</div>
+        <div id="penalty-slot"></div>
         <div class="status-head">
           <div class="rank-badge" id="rank-badge">E</div>
           <div class="status-id">
@@ -126,9 +141,15 @@
     <section class="screen" id="s-active" hidden>
       <div class="window glow center">
         <div class="win-title">[ QUEST IN PROGRESS ]</div>
-        <div class="timer" id="timer">00:00</div>
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring-bg" cx="60" cy="60" r="54"></circle>
+            <circle class="ring-fg" id="ring" cx="60" cy="60" r="54"></circle>
+          </svg>
+          <div class="ring-center"><div class="timer" id="timer">00:00</div><div class="ring-count" id="ring-count"></div></div>
+        </div>
         <p class="sys">Put your phone in your pocket. Go outside. The System is counting.</p>
-        <ol class="mini" id="active-list"></ol>
+        <ul class="live-list" id="active-list"></ul>
         <div class="actions center"><button class="btn primary" id="q-done">I'm back: report</button></div>
       </div>
     </section>

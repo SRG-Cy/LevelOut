@@ -9,11 +9,15 @@ const RANK_LEVEL = [1, 5, 10, 15, 25, 40]; // level at which each rank's test un
 const STATS = ["STR", "AGI", "VIT", "SKL", "FOC"];
 const RATINGS = [["easy", "Easy"], ["ok", "Just right"], ["hard", "Hard"], ["pain", "Hurt"], ["skipped", "Skipped"]];
 const KEY = "levelout:v1";
+const SOUND_KEY = "levelout:sound";
+const RING = 339.292; // circumference of the progress ring (r = 54)
 
 const $ = (s) => document.querySelector(s);
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let state = load();
 let assessQuestions = [];
 let timerId = null;
+let freshGains = null; // stat gains from the quest just claimed, shown once on the status screen
 
 // ---------- utilities ----------
 
@@ -59,6 +63,170 @@ function toast(title, text, gold = false, delay = 0) {
   }, delay);
 }
 
+// ---------- sound + vibration ----------
+
+let soundOn = (() => { try { return localStorage.getItem(SOUND_KEY) !== "off"; } catch { return true; } })();
+let audioCtx = null;
+
+function tone(freq, dur = 0.08, type = "square", vol = 0.04, when = 0) {
+  if (!soundOn) return;
+  try {
+    audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+    const t = audioCtx.currentTime + when;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  } catch { /* no audio available */ }
+}
+
+const SFX = {
+  blip: () => tone(1500, 0.025, "square", 0.012),
+  tick: () => tone(1046, 0.06, "sine", 0.05),
+  notify: () => { tone(880, 0.09, "sine", 0.06); tone(1320, 0.16, "sine", 0.06, 0.09); },
+  levelUp: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, "triangle", 0.07, i * 0.09)),
+  rankUp: () => {
+    [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.24, "triangle", 0.07, i * 0.08));
+    tone(1568, 0.7, "sine", 0.05, 0.5);
+  },
+  penalty: () => { tone(220, 0.28, "sawtooth", 0.05); tone(160, 0.45, "sawtooth", 0.05, 0.24); },
+};
+
+function buzz(pattern) {
+  if (!soundOn || !navigator.vibrate) return;
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return; // browsers block it before a tap
+  try { navigator.vibrate(pattern); } catch { /* unsupported */ }
+}
+
+function renderSoundToggle() {
+  $("#sound-toggle").textContent = soundOn ? "🔊" : "🔇";
+  $("#sound-toggle").setAttribute("aria-pressed", String(soundOn));
+  $("#sound-toggle").title = soundOn ? "Sound and vibration on" : "Sound and vibration off";
+}
+$("#sound-toggle").addEventListener("click", () => {
+  soundOn = !soundOn;
+  try { localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off"); } catch { /* ignore */ }
+  renderSoundToggle();
+  SFX.tick();
+});
+
+// ---------- System text + full-screen moments ----------
+
+function typeText(node, text) {
+  text = str(text);
+  clearInterval(node._typing);
+  if (reduceMotion || !text) {
+    node.textContent = text;
+    node.classList.remove("typing");
+    return;
+  }
+  node.textContent = "";
+  node.classList.add("typing");
+  let i = 0;
+  node._typing = setInterval(() => {
+    node.textContent = text.slice(0, ++i);
+    if (i % 3 === 0) SFX.blip();
+    if (i >= text.length) {
+      clearInterval(node._typing);
+      node.classList.remove("typing");
+    }
+  }, 22);
+}
+
+let momentQueue = Promise.resolve();
+
+// Queue a full-screen System window. Moments play one after another.
+function moment(opts) {
+  momentQueue = momentQueue.then(() => playMoment(opts));
+  return momentQueue;
+}
+
+function playMoment({ title, big = "", rank = null, sub = "", gains = [], theme = "", sfx = null, vibrate = null }) {
+  return new Promise((resolve) => {
+    const overlay = $("#overlay");
+    overlay.className = `overlay ${theme}${theme === "red" ? " shake" : ""}`;
+    $("#ov-title").textContent = title;
+    const bigEl = $("#ov-big");
+    bigEl.className = "ov-big";
+    bigEl.replaceChildren();
+    if (rank) {
+      bigEl.classList.add("rank", `rank-${rank}`);
+      bigEl.append(el("span", null, rank));
+    } else {
+      bigEl.textContent = big;
+    }
+    $("#ov-gains").replaceChildren(...gains.map((g, i) =>
+      el("li", { style: `animation-delay:${0.3 + i * 0.12}s` }, el("span", null, g.label), el("b", null, g.value))));
+    overlay.hidden = false;
+    typeText($("#ov-sub"), sub);
+    if (sfx) SFX[sfx]();
+    if (vibrate) buzz(vibrate);
+    const button = $("#ov-continue");
+    button.disabled = false;
+    button.focus();
+    const close = () => {
+      overlay.hidden = true;
+      button.removeEventListener("click", close);
+      document.removeEventListener("keydown", onKey);
+      resolve();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); close(); }
+    };
+    button.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+  });
+}
+
+// ---------- background particles ----------
+
+(function particles() {
+  const canvas = $("#particles");
+  if (!canvas || reduceMotion) return;
+  const ctx = canvas.getContext("2d");
+  let w = 0, h = 0, dpr = 1;
+  const dots = [];
+  const resize = () => {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    w = canvas.width = innerWidth * dpr;
+    h = canvas.height = innerHeight * dpr;
+  };
+  resize();
+  addEventListener("resize", resize);
+  const count = Math.round(Math.min(60, innerWidth / 18));
+  for (let i = 0; i < count; i++) {
+    dots.push({ x: Math.random() * w, y: Math.random() * h, r: (Math.random() * 1.6 + 0.4) * dpr,
+      speed: (Math.random() * 0.35 + 0.1) * dpr, alpha: Math.random() * 0.6 + 0.2, phase: Math.random() * 6.3 });
+  }
+  const frame = () => {
+    if (!document.hidden) {
+      ctx.clearRect(0, 0, w, h);
+      const red = document.body.classList.contains("penalty");
+      ctx.shadowBlur = 8 * dpr;
+      ctx.shadowColor = red ? "#ff5a5f" : "#4fb3ff";
+      for (const d of dots) {
+        d.y -= d.speed;
+        d.phase += 0.01;
+        d.x += Math.sin(d.phase) * 0.2 * dpr;
+        if (d.y < -5) { d.y = h + 5; d.x = Math.random() * w; }
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fillStyle = red ? `rgba(255,90,95,${d.alpha})` : `rgba(79,179,255,${d.alpha})`;
+        ctx.fill();
+      }
+    }
+    requestAnimationFrame(frame);
+  };
+  frame();
+})();
+
+// ---------- API ----------
+
 async function call(url, body, loadingText) {
   $("#loading-text").textContent = loadingText;
   $("#loading").hidden = false;
@@ -88,6 +256,7 @@ function chipGroup(container, options, multi) {
       if (!multi) container.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
       chip.setAttribute("aria-pressed", String(!(multi && chip.getAttribute("aria-pressed") === "true")));
       if (!multi) $("#skill").value = "";
+      SFX.blip();
     } },
   }, o)));
 }
@@ -96,6 +265,7 @@ const pressed = (container) => [...container.querySelectorAll(".chip[aria-presse
 // ---------- 1-3: onboarding ----------
 
 $("#accept").addEventListener("click", () => {
+  SFX.notify();
   chipGroup($("#skill-chips"), SKILLS, false);
   chipGroup($("#equip-chips"), EQUIPMENT, true);
   show("s-setup");
@@ -116,12 +286,13 @@ $("#begin-trial").addEventListener("click", async () => {
   const result = await call("/api/assess", { skill }, "The System is preparing your trial…").catch(() => null);
   if (!result) return;
   assessQuestions = list(result.questions).filter((q) => q.q && list(q.options).length);
-  $("#assess-msg").textContent = str(result.system_message);
   $("#assess-form").replaceChildren(...assessQuestions.map((q, i) =>
     el("fieldset.question", { style: "border:0;padding:0" },
       el("p", null, `${i + 1}. ${str(q.q)}`),
       list(q.options).map((o) => el("label.option", null, el("input", { type: "radio", name: `q${i}`, value: str(o) }), str(o))))));
   show("s-assess");
+  SFX.notify();
+  typeText($("#assess-msg"), result.system_message);
 });
 
 $("#submit-assess").addEventListener("click", async () => {
@@ -139,9 +310,13 @@ $("#submit-assess").addEventListener("click", async () => {
     streak: 0, questsDone: 0, minutesOutside: 0, planIndex: 0, lastRatings: [], lastNote: "",
   });
   save();
-  toast("[AWAKENING]", str(profile.system_message) || "You have awakened.", true);
-  toast("[RANK ASSIGNED]", str(profile.title) || `${RANKS[rankIndex]}-Rank`, false, 900);
   renderStatus();
+  moment({
+    title: "[ AWAKENING ]", rank: RANKS[rankIndex], theme: rankIndex >= 4 ? "gold" : "",
+    sub: str(profile.system_message) || "You have awakened.",
+    gains: [{ label: "Title", value: str(profile.title) }, ...STATS.map((s) => ({ label: s, value: String(stats[s]) }))],
+    sfx: "rankUp", vibrate: [80, 60, 160],
+  });
 });
 
 // ---------- 4: status ----------
@@ -158,24 +333,37 @@ function renderStatus() {
     state.streak = 0;
     state.penalty = true;
     save();
-    toast("[PENALTY]", "You abandoned training. Your streak is reset. Today's quest carries a penalty set.", false, 300);
+    moment({
+      title: "[ PENALTY ZONE ]", big: "WARNING", theme: "red",
+      sub: "You abandoned your training. Your streak has been reset. Today's quest carries a penalty set.",
+      sfx: "penalty", vibrate: [200, 80, 200],
+    });
   }
-  $("#rank-badge").replaceChildren(el("span", null, RANKS[state.rankIndex]));
+  document.body.classList.toggle("penalty", !!state.penalty);
+  $("#penalty-slot").replaceChildren(state.penalty
+    ? el("div.penalty-banner", null, "⚠ PENALTY ACTIVE: complete today's quest to restore the System's trust.")
+    : "");
+
+  const rank = RANKS[state.rankIndex];
+  const badge = $("#rank-badge");
+  badge.className = `rank-badge rank-${rank}`;
+  badge.replaceChildren(el("span", null, rank));
+  $("#st-title").style.color = getComputedStyle(badge).getPropertyValue("--rank").trim() || "";
   $("#st-name").textContent = state.player;
   $("#st-title").textContent = str(p.title);
   $("#st-level").textContent = state.level;
   $("#st-skill").textContent = state.skill;
   $("#st-streak").textContent = state.streak || 0;
   const need = xpToNext(state.level);
-  $("#xp-fill").style.width = `${Math.min(100, (state.xp / need) * 100)}%`;
+  requestAnimationFrame(() => ($("#xp-fill").style.width = `${Math.min(100, (state.xp / need) * 100)}%`));
   $("#xp-text").textContent = `XP ${state.xp} / ${need}`;
-  $("#stats").replaceChildren(...STATS.map((s) => el("div.stat", null, el("b", null, state.stats[s]), el("small", null, s))));
+  renderStats();
 
   const next = state.rankIndex + 1;
   $("#rank-test").replaceChildren();
   if (next < RANKS.length && state.level >= RANK_LEVEL[next]) {
     $("#rank-test").append(el("div.rank-test", null,
-      el("h3", null, `[ RANK-UP TEST: ${RANKS[state.rankIndex]} → ${RANKS[next]} ]`),
+      el("h3", null, `[ RANK-UP TEST: ${rank} → ${RANKS[next]} ]`),
       el("p", null, str(p.rank_up_test) || "Complete your hardest drill at the 'harder' level."),
       el("button.btn.small", { type: "button", on: { click: passRankTest } }, "I passed the test")));
   } else if (next < RANKS.length) {
@@ -196,19 +384,43 @@ function renderStatus() {
   show("s-status");
 }
 
+function renderStats() {
+  const gains = freshGains || {};
+  freshGains = null;
+  const max = Math.max(20, ...STATS.map((s) => state.stats[s]));
+  const box = $("#stats");
+  box.className = "stats bars";
+  box.replaceChildren(...STATS.map((s) => {
+    const fill = el("div.s-fill");
+    const before = state.stats[s] - (gains[s] || 0);
+    fill.style.width = `${(before / max) * 100}%`;
+    requestAnimationFrame(() => requestAnimationFrame(() => (fill.style.width = `${(state.stats[s] / max) * 100}%`)));
+    return el(`div.stat-row${gains[s] ? ".gained" : ""}`, null,
+      el("span.s-name", null, s),
+      el("div.s-bar", null, fill),
+      el("span.s-val", null, String(state.stats[s]), gains[s] ? el("span.s-plus", null, `+${gains[s]}`) : null));
+  }));
+}
+
 function passRankTest() {
   state.rankIndex += 1;
   const r = RANKS[state.rankIndex];
   state.profile.title = str(state.profile.title).replace(/^[EDCBAS]-Rank/, `${r}-Rank`);
   save();
-  toast("[RANK UP]", `You are now ${r}-Rank. The System acknowledges your growth.`, true);
   renderStatus();
+  moment({
+    title: "[ RANK UP ]", rank: r, theme: "gold",
+    sub: `You are now ${r}-Rank. The System acknowledges your growth.`,
+    gains: [{ label: "New title", value: str(state.profile.title) }],
+    sfx: "rankUp", vibrate: [100, 60, 100, 60, 250],
+  });
 }
 
 $("#reset").addEventListener("click", () => {
   if (!confirm("Erase this Player and start over?")) return;
   state = {};
   save();
+  document.body.classList.remove("penalty");
   show("s-intro");
 });
 
@@ -225,14 +437,16 @@ async function fetchQuest() {
   if (!quest) return;
   quest.drills = list(quest.drills).filter((d) => d.name);
   state.quest = quest;
+  state.checked = [];
   save();
+  SFX.notify();
+  buzz(40);
   renderQuest();
 }
 
 function renderQuest() {
   const q = state.quest;
   $("#q-name").textContent = str(q.name);
-  $("#q-msg").textContent = str(q.system_message);
   $("#q-location").textContent = str(q.location) || "Anywhere outside";
   const simple = (items) => list(items).map((w) => el("div.drill", null,
     el("div.drill-head", null, el("b", null, str(w.name)), el("span.target", null, str(w.target))),
@@ -251,6 +465,7 @@ function renderQuest() {
   );
   $("#q-safety").textContent = q.safety ? `⚠ ${str(q.safety)}` : "";
   show("s-quest");
+  typeText($("#q-msg"), q.system_message);
 }
 
 $("#get-quest").addEventListener("click", () => (state.quest ? renderQuest() : fetchQuest()));
@@ -258,17 +473,48 @@ $("#q-new").addEventListener("click", fetchQuest);
 $("#q-back").addEventListener("click", renderStatus);
 $("#q-start").addEventListener("click", () => {
   state.questStart = Date.now();
+  state.checked = [];
   save();
+  SFX.notify();
+  buzz([40, 40, 40]);
   toast("[QUEST ACCEPTED]", "The timer has started. Go outside.");
   renderActive();
 });
 
+function questItems(q) {
+  return [
+    { key: "warmup", label: "Warm-up" },
+    ...q.drills.map((d, i) => ({ key: `d${i}`, label: `${str(d.name)}: ${str(d.target)}` })),
+    { key: "cooldown", label: "Cool-down" },
+  ];
+}
+
+function updateRing() {
+  const total = questItems(state.quest).length;
+  const done = (state.checked || []).length;
+  $("#ring").style.strokeDashoffset = String(RING * (1 - done / total));
+  $("#ring-count").textContent = `${done} / ${total} done`;
+}
+
 function renderActive() {
   const q = state.quest;
-  $("#active-list").replaceChildren(
-    el("li", null, "Warm-up"),
-    ...q.drills.map((d) => el("li", null, `${str(d.name)}: ${str(d.target)}`)),
-    el("li", null, "Cool-down"));
+  state.checked ||= [];
+  $("#active-list").replaceChildren(...questItems(q).map((item) => {
+    const box = el("input", { type: "checkbox" });
+    box.checked = state.checked.includes(item.key);
+    box.addEventListener("change", () => {
+      state.checked = box.checked ? [...new Set([...state.checked, item.key])] : state.checked.filter((k) => k !== item.key);
+      save();
+      updateRing();
+      if (box.checked) { SFX.tick(); buzz(15); }
+      if (state.checked.length === questItems(q).length) {
+        SFX.notify();
+        toast("[ALL OBJECTIVES COMPLETE]", "Report back to claim your rewards.", true);
+      }
+    });
+    return el("li", null, el("label", null, box, el("span", null, item.label)));
+  }));
+  updateRing();
   const tick = () => {
     const s = Math.floor((Date.now() - state.questStart) / 1000);
     $("#timer").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -284,9 +530,10 @@ function renderActive() {
 $("#q-done").addEventListener("click", () => {
   clearInterval(timerId);
   const q = state.quest;
+  const checked = state.checked || [];
   $("#debrief-list").replaceChildren(...q.drills.map((d, i) => {
     const opts = el("div.rate-opts");
-    chipGroupRatings(opts, i);
+    chipGroupRatings(opts, i, checked.includes(`d${i}`) || !checked.length ? "ok" : "skipped");
     return el("div.rate", null, el("b", null, str(d.name)), opts);
   }));
   $("#bonus-text").textContent = str(q.bonus?.task) || "none";
@@ -296,13 +543,14 @@ $("#q-done").addEventListener("click", () => {
   show("s-debrief");
 });
 
-function chipGroupRatings(container, index) {
+function chipGroupRatings(container, index, initial) {
   container.dataset.index = index;
   container.replaceChildren(...RATINGS.map(([value, label]) => el("button.chip", {
-    type: "button", "data-r": value, "aria-pressed": value === "ok" ? "true" : "false",
+    type: "button", "data-r": value, "aria-pressed": value === initial ? "true" : "false",
     on: { click: (e) => {
       container.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
       e.currentTarget.setAttribute("aria-pressed", "true");
+      SFX.blip();
     } },
   }, label)));
 }
@@ -320,13 +568,15 @@ $("#claim").addEventListener("click", () => {
     gained += Math.max(0, Math.min(100, int(d.xp)));
     if (STATS.includes(d.stat)) statGains[d.stat] = (statGains[d.stat] || 0) + 1;
   });
-  if ($("#bonus-done").checked) gained += Math.max(0, Math.min(100, int(q.bonus?.xp)));
+  const bonusDone = $("#bonus-done").checked;
+  if (bonusDone) gained += Math.max(0, Math.min(100, int(q.bonus?.xp)));
   if (ratings.every((r) => r.rating !== "skipped")) statGains.FOC = (statGains.FOC || 0) + 1;
 
   const d = today();
   if (state.lastQuestDate !== d) {
     state.streak = state.lastQuestDate && daysBetween(state.lastQuestDate, d) <= 2 ? (state.streak || 0) + 1 : 1;
   }
+  const wasPenalty = state.penalty;
   state.lastQuestDate = d;
   state.penalty = false;
   state.questsDone += 1;
@@ -334,30 +584,59 @@ $("#claim").addEventListener("click", () => {
   state.planIndex += 1;
   state.lastRatings = ratings;
   state.lastNote = $("#note").value.trim();
+  const before = { ...state.stats };
   for (const [s, n] of Object.entries(statGains)) state.stats[s] += n;
 
-  toast("[QUEST COMPLETE]", `+${gained} XP`, true);
-  let delay = 700;
+  const startLevel = state.level;
   state.xp += gained;
   while (state.xp >= xpToNext(state.level)) {
     state.xp -= xpToNext(state.level);
     state.level += 1;
-    toast("[LEVEL UP]", `You are now LV. ${state.level}.`, true, delay);
-    delay += 700;
-  }
-  const gains = Object.entries(statGains).map(([s, n]) => `${s} +${n}`).join("  ·  ");
-  if (gains) toast("[STATS INCREASED]", gains, false, delay);
-  if (ratings.some((r) => r.rating === "pain")) {
-    toast("[SYSTEM]", "Pain noted. Tomorrow's quest will protect that area. Rest if it continues.", false, delay + 700);
   }
   delete state.quest;
   delete state.questStart;
+  delete state.checked;
   save();
+
+  freshGains = statGains;
   renderStatus();
+
+  moment({
+    title: "[ QUEST COMPLETE ]", big: `+${gained} XP`,
+    sub: wasPenalty ? "Penalty cleared. The System restores your standing." : "Rewards have been granted.",
+    gains: [
+      ...Object.keys(statGains).map((s) => ({ label: s, value: `${before[s]} → ${state.stats[s]}` })),
+      ...(bonusDone ? [{ label: "Bonus quest", value: "Cleared" }] : []),
+      { label: "Streak", value: `🔥 ${state.streak}` },
+    ],
+    sfx: "notify", vibrate: [40],
+  });
+  if (state.level > startLevel) {
+    const n = state.level - startLevel;
+    moment({
+      title: "[ LEVEL UP ]", big: `LV. ${state.level}`, theme: "gold",
+      sub: n > 1 ? `You gained ${n} levels. Your limits are breaking.` : "You have grown stronger.",
+      sfx: "levelUp", vibrate: [60, 40, 140],
+    });
+    const next = state.rankIndex + 1;
+    if (next < RANKS.length && startLevel < RANK_LEVEL[next] && state.level >= RANK_LEVEL[next]) {
+      moment({
+        title: "[ RANK-UP TEST UNLOCKED ]", rank: RANKS[next], theme: "gold",
+        sub: str(state.profile.rank_up_test) || "Prove your growth to the System.",
+        sfx: "notify",
+      });
+    }
+  }
+  if (ratings.some((r) => r.rating === "pain")) {
+    momentQueue.then(() => toast("[SYSTEM]", "Pain noted. Tomorrow's quest will protect that area. Rest if it continues."));
+  }
 });
 
 // ---------- boot ----------
 
-if (state.profile && state.quest && state.questStart) renderActive();
-else if (state.profile) renderStatus();
+renderSoundToggle();
+if (state.profile && state.quest && state.questStart) {
+  document.body.classList.toggle("penalty", !!state.penalty);
+  renderActive();
+} else if (state.profile) renderStatus();
 else show("s-intro");
