@@ -1,0 +1,74 @@
+import json
+from types import SimpleNamespace
+
+import pytest
+
+import app as lo
+
+
+class FakeClient:
+    def __init__(self, *contents):
+        self.contents = list(contents)
+        self.calls = []
+
+    def chat_completion(self, messages, **kwargs):
+        self.calls.append(messages)
+        item = self.contents.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        msg = SimpleNamespace(content=item)
+        return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
+
+
+@pytest.fixture
+def client():
+    return lo.app.test_client()
+
+
+PROFILE = {"rank": "E", "stats": {"STR": 7, "SKL": 4}, "weaknesses": ["stamina"], "goal": "Juggle 25"}
+
+
+def test_demo_flow_covers_every_endpoint(client, monkeypatch):
+    monkeypatch.setattr(lo, "client", None)
+    assess = client.post("/api/assess", json={"skill": "football"}).get_json()
+    assert len(assess["result"]["questions"]) == 6
+    awaken = client.post("/api/awaken", json={"skill": "football", "answers": [{"q": "a", "a": "b"}]}).get_json()
+    assert awaken["result"]["rank"] == "E" and len(awaken["result"]["weekly_plan"]) == 7
+    quest = client.post("/api/quest", json={"skill": "football", "profile": PROFILE}).get_json()
+    assert quest["demo"] and quest["result"]["drills"]
+
+
+def test_demo_quest_adapts_to_pain(client, monkeypatch):
+    monkeypatch.setattr(lo, "client", None)
+    body = {"skill": "football", "profile": PROFILE, "ratings": [{"name": "Hill sprints", "rating": "pain"}]}
+    names = [d["name"] for d in client.post("/api/quest", json=body).get_json()["result"]["drills"]]
+    assert "Brisk walk intervals" in names and "Hill or stair sprints" not in names
+
+
+def test_validation(client):
+    assert client.post("/api/assess", json={}).status_code == 400
+    assert client.post("/api/awaken", json={"skill": "x", "answers": []}).status_code == 400
+    assert client.post("/api/quest", json={"skill": "x", "profile": "nope"}).status_code == 400
+
+
+def test_quest_prompt_carries_debrief_and_equipment(client, monkeypatch):
+    fake = FakeClient("oops", json.dumps({"name": "Q", "drills": []}))
+    monkeypatch.setattr(lo, "client", fake)
+    body = {
+        "skill": "cricket bowling", "profile": PROFILE, "equipment": ["A wall", "Water bottles"],
+        "ratings": [{"name": "Run-up", "rating": "pain"}, {"name": "Bad", "rating": "<script>"}],
+        "note": "left knee sore", "minutes": 500,
+    }
+    data = client.post("/api/quest", json=body).get_json()
+    assert data == {"demo": False, "result": {"name": "Q", "drills": []}}
+    prompt = fake.calls[0][1]["content"]
+    assert "Run-up: pain" in prompt and "<script>" not in prompt
+    assert "left knee sore" in prompt and "A wall, Water bottles" in prompt
+    assert "90 minutes" in prompt  # clamped
+    assert len(fake.calls) == 2  # retried after bad JSON
+
+
+def test_model_error_is_502(client, monkeypatch):
+    monkeypatch.setattr(lo, "client", FakeClient(RuntimeError("rate limited")))
+    res = client.post("/api/assess", json={"skill": "running"})
+    assert res.status_code == 502 and "rate limited" in res.get_json()["error"]

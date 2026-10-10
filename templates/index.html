@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LevelOut</title>
+  <meta name="description" content="An anime-style System that gives you daily outdoor quests to level up at a real skill. Powered by open-weight AI.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <main class="wrap">
+    <header class="brand">
+      <span class="logo">LEVEL<b>OUT</b></span>
+      <span class="sub">Train outside. Level up for real.</span>
+    </header>
+
+    {% if demo_mode %}
+    <p class="demo-note" role="status">Demo mode: no <code>HF_TOKEN</code> set, so the System uses sample quests.</p>
+    {% endif %}
+
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <!-- 1. Intro -->
+    <section class="screen" id="s-intro">
+      <div class="window glow">
+        <div class="win-title">[ NOTIFICATION ]</div>
+        <p class="sys big">You have met the conditions to become a <b>Player</b>.</p>
+        <p class="sys">The System will test you, assign daily quests outside, and make you stronger at a skill of your choice.</p>
+        <p class="sys dim">Will you accept?</p>
+        <div class="actions"><button class="btn primary" id="accept">Accept</button></div>
+      </div>
+    </section>
+
+    <!-- 2. Skill + setup -->
+    <section class="screen" id="s-setup" hidden>
+      <div class="window">
+        <div class="win-title">[ CHOOSE YOUR PATH ]</div>
+        <label class="field">Player name <input id="player" type="text" maxlength="24" placeholder="Optional"></label>
+        <p class="field-label">Skill to master</p>
+        <div class="chips" id="skill-chips"></div>
+        <input id="skill" type="text" maxlength="60" placeholder="Or type any skill, e.g. 'tennis serve', 'parkour', 'hula hoop'">
+
+        <p class="field-label">What do you have access to?</p>
+        <div class="chips multi" id="equip-chips"></div>
+
+        <div class="row">
+          <label class="field">Minutes per session
+            <select id="minutes"><option>15</option><option>20</option><option selected>30</option><option>45</option><option>60</option></select>
+          </label>
+          <label class="field">Days per week
+            <select id="days"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select>
+          </label>
+        </div>
+        <div class="actions"><button class="btn primary" id="begin-trial">Begin the trial</button></div>
+      </div>
+    </section>
+
+    <!-- 3. Assessment -->
+    <section class="screen" id="s-assess" hidden>
+      <div class="window">
+        <div class="win-title">[ TRIAL ]</div>
+        <p class="sys" id="assess-msg"></p>
+        <form id="assess-form"></form>
+        <div class="actions"><button class="btn primary" id="submit-assess">Submit answers</button></div>
+      </div>
+    </section>
+
+    <!-- 4. Status -->
+    <section class="screen" id="s-status" hidden>
+      <div class="window glow">
+        <div class="win-title">[ STATUS ]</div>
+        <div class="status-head">
+          <div class="rank-badge" id="rank-badge">E</div>
+          <div class="status-id">
+            <div class="name" id="st-name">Player</div>
+            <div class="title" id="st-title"></div>
+            <div class="level">LV. <b id="st-level">1</b> · <span id="st-skill"></span></div>
+          </div>
+          <div class="streak" title="Streak breaks if you go more than 2 days without a quest">🔥 <b id="st-streak">0</b><small>streak</small></div>
+        </div>
+        <div class="xp"><div class="xp-fill" id="xp-fill"></div></div>
+        <div class="xp-label"><span id="xp-text"></span></div>
+        <div class="stats" id="stats"></div>
+        <div id="rank-test"></div>
+        <div class="actions"><button class="btn primary" id="get-quest">Today's Daily Quest</button></div>
+      </div>
+
+      <div class="window">
+        <div class="win-title">[ PLAYER INFO ]</div>
+        <p id="st-summary"></p>
+        <dl class="info">
+          <dt>30-day goal</dt><dd id="st-goal"></dd>
+          <dt>Strengths</dt><dd id="st-strengths"></dd>
+          <dt>To train</dt><dd id="st-weak"></dd>
+          <dt>Quests done</dt><dd id="st-done"></dd>
+          <dt>Time outside</dt><dd id="st-mins"></dd>
+        </dl>
+        <p class="field-label">Weekly plan</p>
+        <ol class="plan" id="st-plan"></ol>
+        <div class="actions"><button class="btn ghost small" id="reset">Reset Player</button></div>
+      </div>
+    </section>
+
+    <!-- 5. Quest -->
+    <section class="screen" id="s-quest" hidden>
+      <div class="window glow">
+        <div class="win-title">[ DAILY QUEST ]</div>
+        <h2 class="quest-name" id="q-name"></h2>
+        <p class="sys" id="q-msg"></p>
+        <p class="dim">📍 <span id="q-location"></span></p>
+        <div id="q-body"></div>
+        <p class="safety" id="q-safety"></p>
+        <div class="actions">
+          <button class="btn ghost" id="q-back">Back</button>
+          <button class="btn ghost" id="q-new">Different quest</button>
+          <button class="btn primary" id="q-start">Accept quest</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Active quest -->
+    <section class="screen" id="s-active" hidden>
+      <div class="window glow center">
+        <div class="win-title">[ QUEST IN PROGRESS ]</div>
+        <div class="timer" id="timer">00:00</div>
+        <p class="sys">Put your phone in your pocket. Go outside. The System is counting.</p>
+        <ol class="mini" id="active-list"></ol>
+        <div class="actions center"><button class="btn primary" id="q-done">I'm back: report</button></div>
+      </div>
+    </section>
+
+    <!-- 7. Debrief -->
+    <section class="screen" id="s-debrief" hidden>
+      <div class="window">
+        <div class="win-title">[ REPORT ]</div>
+        <p class="sys">Report honestly. The System adapts tomorrow's quest to you.</p>
+        <div id="debrief-list"></div>
+        <label class="check"><input type="checkbox" id="bonus-done"> <span>I completed the bonus: <b id="bonus-text"></b></span></label>
+        <label class="field">Anything else? <input id="note" type="text" maxlength="300" placeholder="e.g. my left foot is weaker"></label>
+        <div class="actions"><button class="btn primary" id="claim">Claim rewards</button></div>
+      </div>
+    </section>
+
+    <div id="loading" class="loading" hidden><span class="spinner"></span><span id="loading-text">The System is thinking…</span></div>
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <footer class="foot">
+      The System runs on the open-weight model <code>{{ model }}</code> via Hugging Face. Progress stays in your browser.<br>
+      Not medical advice. Stop if anything hurts. Built for the MLH × DEV Hacktoberfest Open-Source AI Challenge: Touch Grass.
+    </footer>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
