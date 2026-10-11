@@ -29,6 +29,16 @@ Built for the **MLH × DEV Hacktoberfest Open-Source AI Challenge, Week 1: "Touc
 - **Penalty mode:** miss more than 2 days and the whole System turns red until you complete a quest.
 - Floating particles, glowing buttons, and **sound + vibration** with a 🔊/🔇 toggle. It all respects "reduce motion" settings.
 
+### Fair play: no XP for doing nothing
+
+Progress lives on your device, so nothing is truly cheat-proof, but the System makes cheating slow and pointless:
+
+- **Time lock:** reporting unlocks only after half your session length (minimum 5 minutes), with a countdown.
+- **Only ticked drills earn XP.** In the report, unticked drills are locked to "Skipped". The bonus counts only if it was ticked during the quest.
+- **No speed-ticking:** each tick must come at least a minute after the last one, or *"Too fast. The System saw that."*
+- **Quest failed:** a report with nothing ticked gives 0 XP and no streak.
+- **Movement verified (phones):** the motion sensor measures real movement during the quest. Moving earns **+10% XP**. It's a reward only, so a phone left on a bench is never punished.
+
 ### Game rules
 
 | Mechanic | How it works |

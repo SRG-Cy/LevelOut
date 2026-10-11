@@ -311,3 +311,13 @@ body.penalty .logo b { color: var(--glow); }
 .overlay.red .ov-window { border-color: #ff5a5f; box-shadow: 0 0 44px rgba(255, 90, 95, .55); }
 .overlay.red .win-title, .overlay.red .ov-big { color: #ff5a5f; text-shadow: 0 0 24px rgba(255, 90, 95, .8); }
 .overlay.red .burst { background: repeating-conic-gradient(rgba(255, 90, 95, .12) 0 6deg, transparent 6deg 18deg); }
+
+/* anti-cheat feedback */
+.motion { font: 600 .95rem var(--head); letter-spacing: .08em; color: var(--glow); margin: 0 0 6px; }
+.motion.off { color: var(--dim); font-weight: 500; letter-spacing: .02em; }
+.motion.verified { color: var(--good); text-shadow: 0 0 10px rgba(74, 222, 128, .6); }
+.rules { font-size: .85rem; margin: 0 0 10px; }
+#q-done:disabled { opacity: .55; cursor: not-allowed; }
+.rate.locked { opacity: .55; }
+.rate.locked small { color: var(--dim); font-weight: 400; }
+.chip:disabled { cursor: not-allowed; }

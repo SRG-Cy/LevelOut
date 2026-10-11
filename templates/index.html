@@ -149,6 +149,8 @@
           <div class="ring-center"><div class="timer" id="timer">00:00</div><div class="ring-count" id="ring-count"></div></div>
         </div>
         <p class="sys">Put your phone in your pocket. Go outside. The System is counting.</p>
+        <p class="motion off" id="motion"></p>
+        <p class="dim rules">Tick each objective when you finish it. Only ticked drills earn XP.</p>
         <ul class="live-list" id="active-list"></ul>
         <div class="actions center"><button class="btn primary" id="q-done">I'm back: report</button></div>
       </div>
@@ -160,7 +162,7 @@
         <div class="win-title">[ REPORT ]</div>
         <p class="sys">Report honestly. The System adapts tomorrow's quest to you.</p>
         <div id="debrief-list"></div>
-        <label class="check"><input type="checkbox" id="bonus-done"> <span>I completed the bonus: <b id="bonus-text"></b></span></label>
+        <label class="check"><input type="checkbox" id="bonus-done"> <span>Bonus (counts only if ticked during the quest): <b id="bonus-text"></b></span></label>
         <label class="field">Anything else? <input id="note" type="text" maxlength="300" placeholder="e.g. my left foot is weaker"></label>
         <div class="actions"><button class="btn primary" id="claim">Claim rewards</button></div>
       </div>

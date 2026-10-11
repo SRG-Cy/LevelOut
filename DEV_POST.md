@@ -46,6 +46,12 @@ The open model isn't decoration. **It is the game master.** Without it there is 
 
 The game maths (XP curve, levels, rank gates, streaks, penalty quests) is deterministic JavaScript in the browser, so the model can't "inflate" your progress. You only level up by doing the drills.
 
+## You can't fake it
+
+A game about going outside is pointless if you can tap "done" from your sofa, so the System enforces fair play:
+reporting is **time-locked** to the session, **only drills you ticked live earn XP** (each tick at least a minute apart),
+an empty report is a red **QUEST FAILED**, and on phones the **motion sensor** awards "Movement verified: +10% XP" when you actually move.
+
 ## Touching grass
 
 The whole design pushes you off the screen:

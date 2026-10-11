@@ -11,6 +11,9 @@ const RATINGS = [["easy", "Easy"], ["ok", "Just right"], ["hard", "Hard"], ["pai
 const KEY = "levelout:v1";
 const SOUND_KEY = "levelout:sound";
 const RING = 339.292; // circumference of the progress ring (r = 54)
+const TICK_GAP_MS = 60_000; // a drill can't be ticked less than a minute after the last tick
+const MOTION_THRESHOLD = 1.2; // m/s² of acceleration (gravity removed) that counts as moving
+const MOTION_VERIFIED = 120; // accumulated movement that earns the "movement verified" bonus
 
 const $ = (s) => document.querySelector(s);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -474,24 +477,85 @@ $("#q-back").addEventListener("click", renderStatus);
 $("#q-start").addEventListener("click", () => {
   state.questStart = Date.now();
   state.checked = [];
+  delete state.lastTickAt;
+  state.motion = 0;
   save();
+  startMotion();
   SFX.notify();
   buzz([40, 40, 40]);
   toast("[QUEST ACCEPTED]", "The timer has started. Go outside.");
   renderActive();
 });
 
-function questItems(q) {
+// ---------- anti-cheat: time lock, tick spacing, movement ----------
+
+const minReportMs = () => Math.max(5, Math.round((state.minutes || 30) * 0.5)) * 60_000;
+const clock = (ms) => {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+};
+
+let motionListening = false;
+let sensorSeen = false;
+let lastMotionSave = 0;
+
+function onMotion(e) {
+  let mag;
+  const a = e.acceleration;
+  if (a && a.x != null) {
+    mag = Math.hypot(a.x, a.y, a.z);
+  } else {
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null) return;
+    mag = Math.abs(Math.hypot(g.x, g.y, g.z) - 9.81);
+  }
+  sensorSeen = true;
+  if (!state.questStart) return;
+  if (mag > MOTION_THRESHOLD) state.motion = (state.motion || 0) + mag * ((e.interval || 16) / 1000);
+  if (Date.now() - lastMotionSave > 5000) {
+    lastMotionSave = Date.now();
+    save();
+  }
+}
+
+async function startMotion() {
+  if (motionListening || !("DeviceMotionEvent" in window)) return;
+  try {
+    // iOS asks for permission, and only from a tap
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
+      if ((await DeviceMotionEvent.requestPermission()) !== "granted") return;
+    }
+  } catch { return; }
+  addEventListener("devicemotion", onMotion);
+  motionListening = true;
+}
+
+function renderMotion() {
+  const node = $("#motion");
+  if (!sensorSeen) {
+    node.textContent = "Movement sensor: not available on this device";
+    node.className = "motion off";
+    return;
+  }
+  const score = state.motion || 0;
+  const bars = Math.min(5, Math.floor(score / (MOTION_VERIFIED / 5)));
+  node.className = `motion${score >= MOTION_VERIFIED ? " verified" : ""}`;
+  node.textContent = `Movement ${"▮".repeat(bars)}${"▯".repeat(5 - bars)}  ${score >= MOTION_VERIFIED ? "VERIFIED: +10% XP" : "keep moving"}`;
+}
+
+function questItems(q, withBonus = false) {
   return [
     { key: "warmup", label: "Warm-up" },
     ...q.drills.map((d, i) => ({ key: `d${i}`, label: `${str(d.name)}: ${str(d.target)}` })),
     { key: "cooldown", label: "Cool-down" },
+    ...(withBonus && q.bonus?.task ? [{ key: "bonus", label: `Bonus (+${int(q.bonus.xp)} XP): ${str(q.bonus.task)}` }] : []),
   ];
 }
 
 function updateRing() {
-  const total = questItems(state.quest).length;
-  const done = (state.checked || []).length;
+  const required = questItems(state.quest).map((i) => i.key);
+  const total = required.length;
+  const done = (state.checked || []).filter((k) => required.includes(k)).length;
   $("#ring").style.strokeDashoffset = String(RING * (1 - done / total));
   $("#ring-count").textContent = `${done} / ${total} done`;
 }
@@ -499,15 +563,26 @@ function updateRing() {
 function renderActive() {
   const q = state.quest;
   state.checked ||= [];
-  $("#active-list").replaceChildren(...questItems(q).map((item) => {
+  $("#active-list").replaceChildren(...questItems(q, true).map((item) => {
     const box = el("input", { type: "checkbox" });
     box.checked = state.checked.includes(item.key);
     box.addEventListener("change", () => {
+      if (box.checked) {
+        const since = Date.now() - (state.lastTickAt || state.questStart);
+        if (since < TICK_GAP_MS) {
+          box.checked = false;
+          SFX.penalty();
+          buzz([80, 40, 80]);
+          toast("[SYSTEM]", `Too fast. The System saw that. Finish the drill first (${clock(TICK_GAP_MS - since)}).`);
+          return;
+        }
+        state.lastTickAt = Date.now();
+      }
       state.checked = box.checked ? [...new Set([...state.checked, item.key])] : state.checked.filter((k) => k !== item.key);
       save();
       updateRing();
       if (box.checked) { SFX.tick(); buzz(15); }
-      if (state.checked.length === questItems(q).length) {
+      if (questItems(q).every((i) => state.checked.includes(i.key))) {
         SFX.notify();
         toast("[ALL OBJECTIVES COMPLETE]", "Report back to claim your rewards.", true);
       }
@@ -515,9 +590,15 @@ function renderActive() {
     return el("li", null, el("label", null, box, el("span", null, item.label)));
   }));
   updateRing();
+  if (typeof DeviceMotionEvent === "undefined" || typeof DeviceMotionEvent.requestPermission !== "function") startMotion();
   const tick = () => {
-    const s = Math.floor((Date.now() - state.questStart) / 1000);
-    $("#timer").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    const elapsed = Date.now() - state.questStart;
+    $("#timer").textContent = clock(elapsed);
+    const left = minReportMs() - elapsed;
+    const button = $("#q-done");
+    button.disabled = left > 0;
+    button.textContent = left > 0 ? `Report unlocks in ${clock(left)}` : "I'm back: report";
+    renderMotion();
   };
   tick();
   clearInterval(timerId);
@@ -532,21 +613,23 @@ $("#q-done").addEventListener("click", () => {
   const q = state.quest;
   const checked = state.checked || [];
   $("#debrief-list").replaceChildren(...q.drills.map((d, i) => {
+    const ticked = checked.includes(`d${i}`);
     const opts = el("div.rate-opts");
-    chipGroupRatings(opts, i, checked.includes(`d${i}`) || !checked.length ? "ok" : "skipped");
-    return el("div.rate", null, el("b", null, str(d.name)), opts);
+    chipGroupRatings(opts, i, ticked ? "ok" : "skipped", !ticked);
+    return el(`div.rate${ticked ? "" : ".locked"}`, null,
+      el("b", null, str(d.name), ticked ? null : el("small", null, "  · not ticked during the quest, so no XP")), opts);
   }));
   $("#bonus-text").textContent = str(q.bonus?.task) || "none";
-  $("#bonus-done").checked = false;
-  $("#bonus-done").disabled = !q.bonus?.task;
+  $("#bonus-done").checked = checked.includes("bonus");
+  $("#bonus-done").disabled = true; // the bonus counts only if it was ticked during the quest
   $("#note").value = "";
   show("s-debrief");
 });
 
-function chipGroupRatings(container, index, initial) {
+function chipGroupRatings(container, index, initial, locked = false) {
   container.dataset.index = index;
   container.replaceChildren(...RATINGS.map(([value, label]) => el("button.chip", {
-    type: "button", "data-r": value, "aria-pressed": value === initial ? "true" : "false",
+    type: "button", "data-r": value, "aria-pressed": value === initial ? "true" : "false", disabled: locked,
     on: { click: (e) => {
       container.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
       e.currentTarget.setAttribute("aria-pressed", "true");
@@ -557,10 +640,28 @@ function chipGroupRatings(container, index, initial) {
 
 $("#claim").addEventListener("click", () => {
   const q = state.quest;
+  const checked = state.checked || [];
   const ratings = q.drills.map((d, i) => ({
     name: d.name,
-    rating: document.querySelector(`.rate-opts[data-index="${i}"] .chip[aria-pressed=true]`)?.dataset.r || "ok",
+    rating: checked.includes(`d${i}`)
+      ? document.querySelector(`.rate-opts[data-index="${i}"] .chip[aria-pressed=true]`)?.dataset.r || "ok"
+      : "skipped", // unticked drills never earn XP
   }));
+  if (ratings.every((r) => r.rating === "skipped")) {
+    delete state.quest;
+    delete state.questStart;
+    delete state.checked;
+    delete state.lastTickAt;
+    delete state.motion;
+    save();
+    renderStatus();
+    moment({
+      title: "[ QUEST FAILED ]", big: "0 XP", theme: "red",
+      sub: "No objectives were completed. The System does not reward intentions.",
+      sfx: "penalty", vibrate: [200, 80, 200],
+    });
+    return;
+  }
   let gained = 0;
   const statGains = {};
   q.drills.forEach((d, i) => {
@@ -568,8 +669,10 @@ $("#claim").addEventListener("click", () => {
     gained += Math.max(0, Math.min(100, int(d.xp)));
     if (STATS.includes(d.stat)) statGains[d.stat] = (statGains[d.stat] || 0) + 1;
   });
-  const bonusDone = $("#bonus-done").checked;
+  const bonusDone = checked.includes("bonus");
   if (bonusDone) gained += Math.max(0, Math.min(100, int(q.bonus?.xp)));
+  const moved = (state.motion || 0) >= MOTION_VERIFIED;
+  if (moved) gained = Math.round(gained * 1.1);
   if (ratings.every((r) => r.rating !== "skipped")) statGains.FOC = (statGains.FOC || 0) + 1;
 
   const d = today();
@@ -596,6 +699,8 @@ $("#claim").addEventListener("click", () => {
   delete state.quest;
   delete state.questStart;
   delete state.checked;
+  delete state.lastTickAt;
+  delete state.motion;
   save();
 
   freshGains = statGains;
@@ -607,6 +712,7 @@ $("#claim").addEventListener("click", () => {
     gains: [
       ...Object.keys(statGains).map((s) => ({ label: s, value: `${before[s]} → ${state.stats[s]}` })),
       ...(bonusDone ? [{ label: "Bonus quest", value: "Cleared" }] : []),
+      ...(moved ? [{ label: "Movement verified", value: "+10% XP" }] : []),
       { label: "Streak", value: `🔥 ${state.streak}` },
     ],
     sfx: "notify", vibrate: [40],
