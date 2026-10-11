@@ -67,6 +67,10 @@ The whole design pushes you off the screen:
 - Asking an open model for a **fixed JSON shape** per step made the output reliable enough to drive a game UI. A single retry on bad JSON covers the rest.
 - Safety had to be designed in, not bolted on: an injury question in every trial, a safety line in every quest, and a hard rule that a "Hurt" rating replaces the drill.
 
+## Prize Categories
+
+**Render.** LevelOut is deployed on Render's free tier from a `render.yaml` Blueprint in the repo, so anyone can fork it and get their own System running in a few clicks: Render reads the build and start commands, pins Python, sets the open-model settings, and only asks you to paste your own API key, which never touches the repo. Two choices were shaped by running it as a public Render service: a 120-second gunicorn timeout, because reasoning models like gpt-oss can think for a while before answering, and a per-visitor limit on AI calls so a public link can't drain the key's free quota.
+
 ## What's next
 
 - An open-weight vision model that checks a photo of your stance and gives a form tip
