@@ -1,6 +1,6 @@
 ---
 title: "LevelOut: an anime-style System that levels you up at a real skill, outside"
-tags: hacktoberfestchallenge, opensource, ai, devchallenge
+tags: devchallenge, hf26challenge, opensource, ai
 ---
 
 *This is a submission for the Hacktoberfest Open-Source AI Challenge, Week 1: Touch Grass.*
@@ -58,6 +58,13 @@ The whole design pushes you off the screen:
 - the quest is short enough to remember, then the screen says *"Put your phone in your pocket"*;
 - nothing needs a gym, a partner or a subscription, just a park and a wall;
 - the bonus quests are things like *"Walk home the long way and notice three things you've never seen before."*
+
+## Why open matters here
+
+- **Your training data stays yours.** Fitness and injury answers are personal. Because the System is an open-weight model, you can run the exact same app on your own machine or server with `LLM_BASE_URL`, and nothing leaves it.
+- **No lock-in.** The model is a setting, not a dependency: gpt-oss today, Qwen, Llama or Gemma tomorrow, on any host or none.
+- **Anyone can audit the coach.** The prompts (`prompts.py`) and the model weights are both public, so you can see exactly why the System gave you a drill, and change it if it's wrong for you.
+- **Free to run.** Open models on free hosts, or on your own hardware, mean a student can use a personal coach without a subscription.
 
 ## What I learned
 
