@@ -104,6 +104,8 @@ HF_MODEL=openai/gpt-oss-120b
 
 **Deploy:** any Python host (Render, Railway, DigitalOcean App Platform). Set `HF_TOKEN` and use the start command `gunicorn app:app`.
 
+**Recording a demo?** Add `FAST_DEMO=1` to `.env` and restart. Ticks then need only 3 seconds between them and the report unlocks after 10 seconds, so you can show the whole loop in about a minute. A banner shows while it's on. It's a server setting, so visitors to a deployed site can't turn it on. Remove it afterwards.
+
 **Tests:** `pip install pytest && python -m pytest -q`
 
 ## How it works

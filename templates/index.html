@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body{% if fast_demo %} data-fast="1"{% endif %}>
   <div class="bg-grid" aria-hidden="true"></div>
   <canvas id="particles" aria-hidden="true"></canvas>
   <main class="wrap">
@@ -20,6 +20,9 @@
       <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="true" title="Sound and vibration">🔊</button>
     </header>
 
+    {% if fast_demo %}
+    <p class="fast-note" role="status">⚡ FAST DEMO MODE: quest timings are shortened for recording. Turn off <code>FAST_DEMO</code> for real training.</p>
+    {% endif %}
     {% if demo_mode %}
     <p class="demo-note" role="status">Demo mode: no <code>HF_TOKEN</code> or <code>LLM_BASE_URL</code> set, so the System uses sample quests.</p>
     {% endif %}

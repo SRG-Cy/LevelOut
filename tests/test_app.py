@@ -86,3 +86,16 @@ def test_llm_base_url_switches_to_self_hosted_server(monkeypatch):
     finally:
         monkeypatch.delenv("LLM_BASE_URL")
         importlib.reload(lo)
+
+
+def test_fast_demo_flag_is_server_side(monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("FAST_DEMO", "1")
+    try:
+        page = importlib.reload(lo).app.test_client().get("/").data
+        assert b'data-fast="1"' in page and b"FAST DEMO MODE" in page
+    finally:
+        monkeypatch.delenv("FAST_DEMO")
+        page = importlib.reload(lo).app.test_client().get("/").data
+        assert b"data-fast" not in page

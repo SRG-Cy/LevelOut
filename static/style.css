@@ -321,3 +321,4 @@ body.penalty .logo b { color: var(--glow); }
 .rate.locked { opacity: .55; }
 .rate.locked small { color: var(--dim); font-weight: 400; }
 .chip:disabled { cursor: not-allowed; }
+.fast-note { color: var(--gold); font-size: .85rem; margin: -6px 0 14px; }

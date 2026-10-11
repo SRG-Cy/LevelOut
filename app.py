@@ -26,6 +26,8 @@ HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 HF_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip() or HF_TOKEN
+# Shortens quest timings so the whole loop can be recorded in a minute. Never enable on a public deploy.
+FAST_DEMO = os.getenv("FAST_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
 RATINGS = {"easy", "ok", "hard", "pain", "skipped"}
 
 app = Flask(__name__)
@@ -179,7 +181,7 @@ def quest_prompt(data):
 @app.get("/")
 def index():
     return render_template(
-        "index.html", demo_mode=client is None, model=HF_MODEL,
+        "index.html", demo_mode=client is None, model=HF_MODEL, fast_demo=FAST_DEMO,
         host=urlparse(LLM_BASE_URL).hostname if LLM_BASE_URL else "Hugging Face",
     )
 

@@ -11,7 +11,9 @@ const RATINGS = [["easy", "Easy"], ["ok", "Just right"], ["hard", "Hard"], ["pai
 const KEY = "levelout:v1";
 const SOUND_KEY = "levelout:sound";
 const RING = 339.292; // circumference of the progress ring (r = 54)
-const TICK_GAP_MS = 60_000; // a drill can't be ticked less than a minute after the last tick
+// FAST_DEMO (set on the server) shrinks quest timings so the loop can be recorded quickly.
+const FAST = document.body.dataset.fast === "1";
+const TICK_GAP_MS = FAST ? 3_000 : 60_000; // a drill can't be ticked sooner than this after the last tick
 const MOTION_THRESHOLD = 1.2; // m/s² of acceleration (gravity removed) that counts as moving
 const MOTION_VERIFIED = 120; // accumulated movement that earns the "movement verified" bonus
 
@@ -489,7 +491,7 @@ $("#q-start").addEventListener("click", () => {
 
 // ---------- anti-cheat: time lock, tick spacing, movement ----------
 
-const minReportMs = () => Math.max(5, Math.round((state.minutes || 30) * 0.5)) * 60_000;
+const minReportMs = () => (FAST ? 10_000 : Math.max(5, Math.round((state.minutes || 30) * 0.5)) * 60_000);
 const clock = (ms) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
