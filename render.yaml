@@ -1,0 +1,19 @@
+# One-click Render deploy: Dashboard → New → Blueprint → pick this repo.
+services:
+  - type: web
+    name: levelout
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: HF_MODEL
+        value: openai/gpt-oss-120b
+      - key: LLM_API_KEY
+        sync: false   # Render asks you to paste your Groq key; it is never stored in the repo
+      - key: AI_REQUESTS_PER_HOUR
+        value: "40"

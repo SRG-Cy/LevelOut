@@ -102,7 +102,7 @@ HF_MODEL=openai/gpt-oss-120b
 
 **No token?** It runs in **demo mode** with sample trials and quests, including the "Hurt" adaptation, so you can play the whole loop.
 
-**Deploy:** any Python host (Render, Railway, DigitalOcean App Platform). Set `HF_TOKEN` and use the start command `gunicorn app:app`.
+**Deploy (Render, free):** in the Render dashboard choose **New → Blueprint**, pick this repo, paste your Groq key when asked for `LLM_API_KEY`, and click **Apply**. `render.yaml` sets up everything else, including a 120-second timeout for slower model replies. Each visitor is limited to `AI_REQUESTS_PER_HOUR` AI calls (default 40), so a public link can't drain your key. Never set `FAST_DEMO` on a public deploy.
 
 **Recording a demo?** Add `FAST_DEMO=1` to `.env` and restart. Ticks then need only 3 seconds between them and the report unlocks after 10 seconds, so you can show the whole loop in about a minute. A banner shows while it's on. It's a server setting, so visitors to a deployed site can't turn it on. Remove it afterwards.
 

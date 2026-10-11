@@ -99,3 +99,14 @@ def test_fast_demo_flag_is_server_side(monkeypatch):
         monkeypatch.delenv("FAST_DEMO")
         page = importlib.reload(lo).app.test_client().get("/").data
         assert b"data-fast" not in page
+
+
+def test_ai_requests_are_rate_limited_per_visitor(client, monkeypatch):
+    monkeypatch.setattr(lo, "AI_REQUESTS_PER_HOUR", 2)
+    monkeypatch.setattr(lo, "_recent_calls", lo.defaultdict(lo.deque))
+    monkeypatch.setattr(lo, "client", FakeClient('{"questions": []}', '{"questions": []}', '{"questions": []}'))
+    headers = {"X-Forwarded-For": "203.0.113.7"}
+    codes = [client.post("/api/assess", json={"skill": "running"}, headers=headers).status_code for _ in range(3)]
+    assert codes == [200, 200, 429]
+    other = client.post("/api/assess", json={"skill": "running"}, headers={"X-Forwarded-For": "198.51.100.2"})
+    assert other.status_code == 200

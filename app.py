@@ -11,6 +11,9 @@ Progress (XP, levels, stats, streaks) is computed and stored in the browser.
 import json
 import os
 import re
+import threading
+import time
+from collections import defaultdict, deque
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
@@ -28,6 +31,8 @@ LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip() or HF_TOKEN
 # Shortens quest timings so the whole loop can be recorded in a minute. Never enable on a public deploy.
 FAST_DEMO = os.getenv("FAST_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
+# Caps AI calls per visitor so a public deploy can't burn through the API key's free quota.
+AI_REQUESTS_PER_HOUR = int(os.getenv("AI_REQUESTS_PER_HOUR", "40") or 40)
 RATINGS = {"easy", "ok", "hard", "pain", "skipped"}
 
 app = Flask(__name__)
@@ -108,6 +113,29 @@ def strings(data, key, limit=20, length=80):
     return [str(i).strip()[:length] for i in items[:limit] if str(i).strip()]
 
 
+_recent_calls = defaultdict(deque)
+_calls_lock = threading.Lock()
+
+
+def client_ip():
+    # Behind a host's proxy (e.g. Render) the last X-Forwarded-For entry is the address it saw.
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    return forwarded.split(",")[-1].strip() if forwarded else (request.remote_addr or "unknown")
+
+
+def over_limit(ip):
+    """Sliding one-hour window per visitor. Returns True if this call should be refused."""
+    now = time.monotonic()
+    with _calls_lock:
+        calls = _recent_calls[ip]
+        while calls and now - calls[0] > 3600:
+            calls.popleft()
+        if len(calls) >= AI_REQUESTS_PER_HOUR:
+            return True
+        calls.append(now)
+        return False
+
+
 def respond(build_prompt, demo_result):
     """Shared endpoint flow: validate input, then ask the model or return demo data."""
     data = request.get_json(silent=True) or {}
@@ -117,6 +145,8 @@ def respond(build_prompt, demo_result):
         return jsonify(error=str(exc)), 400
     if client is None:
         return jsonify(result=demo_result(data), demo=True)
+    if over_limit(client_ip()):
+        return jsonify(error="The System needs to rest. You've hit this hour's limit of AI requests; try again later."), 429
     try:
         return jsonify(result=ask_model(user_prompt), demo=False)
     except ModelError as exc:
