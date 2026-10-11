@@ -1,8 +1,3 @@
----
-title: "LevelOut: an anime-style System that levels you up at a real skill, outside"
-tags: devchallenge, hf26challenge, opensource, ai
----
-
 *This is a submission for the Hacktoberfest Open-Source AI Challenge, Week 1: Touch Grass.*
 
 ## What I Built
@@ -23,11 +18,12 @@ To rank up you have to pass a **real-world test** the System set for you, such a
 
 ## Demo
 
-<!-- Add your deployed link and/or a short screen recording here -->
-🔗 Live demo: `<your link>`
-💻 Code: https://github.com/SRG-Cy/levelout
+🔗 **Try it live:** PASTE_RENDER_LINK_HERE
 
-![Daily quest](https://raw.githubusercontent.com/SRG-Cy/levelout/main/docs/quest.png)
+{% embed PASTE_YOUTUBE_LINK_HERE %}
+💻 Code: https://github.com/SRG-Cy/LevelOut
+
+![Daily quest](https://raw.githubusercontent.com/SRG-Cy/LevelOut/main/docs/levelup.png)
 
 ## How open-source AI powers it
 
